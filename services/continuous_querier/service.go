@@ -234,6 +234,8 @@ func (s *Service) ExecuteContinuousQuery(dbi *meta.DatabaseInfo, cqi *meta.Conti
 		return err
 	}
 
+	fmt.Println("[pandora] execute continuous query")
+
 	// Get the last time this CQ was run from the service's cache.
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -250,6 +252,7 @@ func (s *Service) ExecuteContinuousQuery(dbi *meta.DatabaseInfo, cqi *meta.Conti
 	if err != nil {
 		return err
 	} else if !run {
+		fmt.Println("[pandora] cq should not run")
 		return nil
 	}
 
@@ -313,6 +316,7 @@ func (s *Service) ExecuteContinuousQuery(dbi *meta.DatabaseInfo, cqi *meta.Conti
 // runContinuousQueryAndWriteResult will run the query against the cluster and write the results back in
 func (s *Service) runContinuousQueryAndWriteResult(cq *ContinuousQuery) error {
 	// Wrap the CQ's inner SELECT statement in a Query for the QueryExecutor.
+	fmt.Println("[pandora] run continuous query and Write result", cq.q.String(), cq.q.Fields)
 	q := &influxql.Query{
 		Statements: influxql.Statements([]influxql.Statement{cq.q}),
 	}

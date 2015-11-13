@@ -2,12 +2,11 @@ package cluster
 
 import (
 	"fmt"
-	"net"
-	"time"
-
 	"github.com/influxdb/influxdb/meta"
 	"github.com/influxdb/influxdb/models"
 	"gopkg.in/fatih/pool.v2"
+	"net"
+	"time"
 )
 
 const (
@@ -60,6 +59,7 @@ func (w *ShardWriter) WriteShard(shardID, ownerID uint64, points []models.Point)
 	if err != nil {
 		return err
 	}
+	fmt.Printf("[pandora] new write shard req: shardID:%v ownerID:%v Poinst:\n%v\n", shardID, ownerID, points)
 
 	// Write request.
 	conn.SetWriteDeadline(time.Now().Add(w.timeout))
@@ -85,6 +85,8 @@ func (w *ShardWriter) WriteShard(shardID, ownerID uint64, points []models.Point)
 	if response.Code() != 0 {
 		return fmt.Errorf("error code %d: %s", response.Code(), response.Message())
 	}
+
+	fmt.Printf("[pandora] write shard finished with response, code:%v, message:%v\n", response.Code(), response.Message())
 
 	return nil
 }

@@ -181,12 +181,14 @@ func (s *Service) handleConn(conn net.Conn) {
 
 func (s *Service) processWriteShardRequest(buf []byte) error {
 	// Build request
+	fmt.Printf("[pandora] start to process write shard request, data:%v，string(data):%v\n", buf, string(buf))
 	var req WriteShardRequest
 	if err := req.UnmarshalBinary(buf); err != nil {
 		return err
 	}
 
 	points := req.Points()
+	fmt.Println("[pandora] points in requests:", points)
 	s.statMap.Add(writeShardPointsReq, int64(len(points)))
 	err := s.TSDBStore.WriteToShard(req.ShardID(), req.Points())
 

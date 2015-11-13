@@ -2,10 +2,10 @@ package tsdb
 
 import (
 	"errors"
-	"time"
-
+	"fmt"
 	"github.com/influxdb/influxdb/influxql"
 	"github.com/influxdb/influxdb/models"
+	"time"
 )
 
 // convertRowToPoints will convert a query result Row into Points that can be written back in.
@@ -14,6 +14,7 @@ func convertRowToPoints(measurementName string, row *models.Row) ([]models.Point
 	// figure out which parts of the result are the time and which are the fields
 	timeIndex := -1
 	fieldIndexes := make(map[string]int)
+	fmt.Println("[pandora] row columns:", row.Columns)
 	for i, c := range row.Columns {
 		if c == "time" {
 			timeIndex = i
@@ -21,7 +22,7 @@ func convertRowToPoints(measurementName string, row *models.Row) ([]models.Point
 			fieldIndexes[c] = i
 		}
 	}
-
+	fmt.Println("[pandora] filed indexes", fieldIndexes)
 	if timeIndex == -1 {
 		return nil, errors.New("error finding time index in result")
 	}
@@ -35,13 +36,13 @@ func convertRowToPoints(measurementName string, row *models.Row) ([]models.Point
 				vals[fieldName] = v[fieldIndex]
 			}
 		}
-
+		fmt.Printf("[pandora] measurement:%v row.tag:%v vals:%v time:%v\n", measurementName, row.Tags, vals, v[timeIndex].(time.Time))
 		p, err := models.NewPoint(measurementName, row.Tags, vals, v[timeIndex].(time.Time))
 		if err != nil {
 			// Drop points that can't be stored
 			continue
 		}
-
+		fmt.Println("[pandora] new point:", p)
 		points = append(points, p)
 	}
 

@@ -141,6 +141,7 @@ func (q *QueryExecutor) Authorize(u *meta.UserInfo, query *influxql.Query, datab
 func (q *QueryExecutor) ExecuteQuery(query *influxql.Query, database string, chunkSize int) (<-chan *influxql.Result, error) {
 	// Execute each statement. Keep the iterator external so we can
 	// track how many of the statements were executed
+	fmt.Println("[pandora] start to execute query:", query.String())
 	results := make(chan *influxql.Result)
 	go func() {
 		var i int
@@ -700,6 +701,7 @@ func (q *QueryExecutor) PlanShowTagKeys(stmt *influxql.ShowTagKeysStatement, dat
 
 func (q *QueryExecutor) executeStatement(statementID int, stmt influxql.Statement, database string, results chan *influxql.Result, chunkSize int) error {
 	// Plan statement execution.
+	fmt.Println("[pandora] start to execute statement", stmt.String(), database)
 	e, err := q.planStatement(stmt, database, chunkSize)
 	if err != nil {
 		return err
@@ -725,6 +727,8 @@ func (q *QueryExecutor) executeStatement(statementID int, stmt influxql.Statemen
 		if ok && selectstmt.Target != nil {
 			isinto = true
 			// this is a into query. Write results back to database
+			fmt.Println("[pandora] this is a into query, write results back to database")
+			fmt.Println("[pandora] ", row, selectstmt.String())
 			writeerr = q.writeInto(row, selectstmt)
 			intoNum += int64(len(row.Values))
 		} else {
@@ -769,12 +773,14 @@ func (q *QueryExecutor) writeInto(row *models.Row, selectstmt *influxql.SelectSt
 	if measurement == "" {
 		measurement = row.Name
 	}
+	fmt.Println("[pandora] into measurement:", measurement)
 	intodb, err := intoDB(selectstmt)
 	if err != nil {
 		return err
 	}
 	rp := intoRP(selectstmt)
 	points, err := convertRowToPoints(measurement, row)
+	fmt.Println("[pandora] convert row:", row, "to points:", points)
 	if err != nil {
 		return err
 	}
