@@ -2167,3 +2167,19 @@ func panicIfErr(err error) {
 		panic(err)
 	}
 }
+
+func Test_parseSelectStatement(t *testing.T) {
+	sql := "select value + value from cpu"
+	st, err := influxql.NewParser(strings.NewReader(sql)).ParseStatement()
+	if err != nil {
+		return
+	}
+
+	stmt, ok := st.(*influxql.SelectStatement)
+	if !ok {
+		t.Fatal("not value select statement")
+	}
+
+	fmt.Println(stmt.Fields)
+	fmt.Println(stmt.IsRawQuery)
+}

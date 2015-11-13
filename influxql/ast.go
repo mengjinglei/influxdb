@@ -2333,6 +2333,8 @@ func (a Fields) Names() []string {
 			name = expr.Name
 		case *VarRef:
 			name = expr.Val
+		default:
+			name = expr.String()
 		}
 		names = append(names, name)
 	}
