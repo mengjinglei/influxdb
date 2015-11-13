@@ -1,8 +1,22 @@
+## v0.9.6 [unreleased]
+
+### Features
+
+### Bugfixes
+
 ## v0.9.5 [unreleased]
 
 ### Release Notes
+
 - Field names for the internal stats have been changed to be more inline with Go style.
 - 0.9.5 is reverting to Go 1.4.2 due to unresolved issues with Go 1.5.1.
+
+There are breaking changes in this release:
+- The filesystem hierarchy for packages has been changed, namely:
+  - Binaries are now located in `/usr/bin` (previously `/opt/influxdb`)
+  - Configuration files are now located in `/etc/influxdb` (previously `/etc/opt/influxdb`)
+  - Data directories are now located in `/var/lib/influxdb` (previously `/var/opt/influxdb`)
+  - Scripts are now located in `/usr/lib/influxdb/scripts` (previously `/opt/influxdb`)
 
 ### Features
 - [#4098](https://github.com/influxdb/influxdb/pull/4702): Support 'history' command at CLI
@@ -39,6 +53,7 @@
 - [#4685](https://github.com/influxdb/influxdb/pull/4685): Automatically promote node to raft peer if drop server results in removing a raft peer.
 
 ### Bugfixes
+- [#4778](https://github.com/influxdb/influxdb/pull/4778): If there are no points to count, count is 0. Fixes [#4701](https://github.com/influxdb/influxdb/issues/4701)
 - [#4715](https://github.com/influxdb/influxdb/pull/4715): Fix panic during Raft-close. Fix [issue #4707](https://github.com/influxdb/influxdb/issues/4707). Thanks @oiooj
 - [#4643](https://github.com/influxdb/influxdb/pull/4643): Fix panic during backup restoration. Thanks @oiooj
 - [#4632](https://github.com/influxdb/influxdb/pull/4632): Fix parsing of IPv6 hosts in client package. Thanks @miguelxpn
