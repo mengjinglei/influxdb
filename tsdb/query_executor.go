@@ -297,8 +297,10 @@ func (q *QueryExecutor) PlanSelect(stmt *influxql.SelectStatement, chunkSize int
 	stmt.RewriteDistinct()
 
 	if (stmt.IsRawQuery && !stmt.HasDistinct()) || stmt.IsSimpleDerivative() {
+		fmt.Println("[debug] new raw executor", stmt.Fields.Names())
 		return NewRawExecutor(stmt, mappers, chunkSize), nil
 	} else {
+		fmt.Println("[debug] new aggregate executor", stmt.Fields.Names())
 		return NewAggregateExecutor(stmt, mappers), nil
 	}
 }

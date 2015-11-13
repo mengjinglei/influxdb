@@ -3,6 +3,7 @@ package influxql
 import (
 	"encoding/json"
 	"errors"
+	"github.com/qiniu/log.v1"
 
 	"github.com/influxdb/influxdb/models"
 )
@@ -68,24 +69,34 @@ func (r *Result) UnmarshalJSON(b []byte) error {
 }
 
 func GetProcessor(expr Expr, startIndex int) (Processor, int) {
+	log.Println("expr:", expr, startIndex)
 	switch expr := expr.(type) {
 	case *VarRef:
+		log.Println("var ref")
 		return newEchoProcessor(startIndex), startIndex + 1
 	case *Call:
+		log.Println("call")
 		return newEchoProcessor(startIndex), startIndex + 1
 	case *BinaryExpr:
+		log.Println("binary processor")
 		return getBinaryProcessor(expr, startIndex)
 	case *ParenExpr:
+		log.Println("paren expr")
 		return GetProcessor(expr.Expr, startIndex)
 	case *NumberLiteral:
+		log.Println("number literal")
 		return newLiteralProcessor(expr.Val), startIndex
 	case *StringLiteral:
+		log.Println("string literal")
 		return newLiteralProcessor(expr.Val), startIndex
 	case *BooleanLiteral:
+		log.Println("boolean literal")
 		return newLiteralProcessor(expr.Val), startIndex
 	case *TimeLiteral:
+		log.Println("time literal")
 		return newLiteralProcessor(expr.Val), startIndex
 	case *DurationLiteral:
+		log.Println("duration literal")
 		return newLiteralProcessor(expr.Val), startIndex
 	}
 	panic("unreachable")
@@ -113,11 +124,16 @@ func getBinaryProcessor(expr *BinaryExpr, startIndex int) (Processor, int) {
 }
 
 func newBinaryExprEvaluator(op Token, lhs, rhs Processor) Processor {
+	log.Println("op", op)
+	log.Println("lhs", lhs, rhs)
 	switch op {
 	case ADD:
 		return func(values []interface{}) interface{} {
 			l := lhs(values)
 			r := rhs(values)
+			log.Println(l)
+			log.Println(r)
+
 			if lf, rf, ok := processorValuesAsFloat64(l, r); ok {
 				return lf + rf
 			}

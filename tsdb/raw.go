@@ -2,12 +2,11 @@ package tsdb
 
 import (
 	"fmt"
+	"github.com/influxdb/influxdb/influxql"
+	"github.com/influxdb/influxdb/models"
 	"math"
 	"sort"
 	"time"
-
-	"github.com/influxdb/influxdb/influxql"
-	"github.com/influxdb/influxdb/models"
 )
 
 const (
@@ -85,7 +84,7 @@ func (e *RawExecutor) execute(out chan *models.Row) {
 		selectFields = e.stmt.Fields.Names()
 		aliasFields = e.stmt.Fields.AliasNames()
 	}
-
+	fmt.Println(">>>>", selectFields)
 	// Used to read ahead chunks from mappers.
 	var rowWriter *limitedRowWriter
 	var currTagset string
@@ -636,10 +635,11 @@ func processForMath(fields influxql.Fields, results [][]interface{}) [][]interfa
 	if !hasMath {
 		return results
 	}
-
+	fmt.Println(results)
 	processors := make([]influxql.Processor, len(fields))
 	startIndex := 1
 	for i, f := range fields {
+		fmt.Println(f.Expr)
 		processors[i], startIndex = influxql.GetProcessor(f.Expr, startIndex)
 	}
 
