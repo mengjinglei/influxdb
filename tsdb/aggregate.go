@@ -3,13 +3,14 @@ package tsdb
 import (
 	"errors"
 	"fmt"
+	"sort"
+	"strings"
+	"time"
+
 	"github.com/influxdb/influxdb/influxql"
 	"github.com/influxdb/influxdb/models"
 	"github.com/influxdb/influxdb/pkg/slices"
 	"github.com/qiniu/log.v1"
-	"sort"
-	"strings"
-	"time"
 )
 
 // AggregateExecutor represents a mapper for execute aggregate SELECT statements.
@@ -118,8 +119,13 @@ func (e *AggregateExecutor) execute(out chan *models.Row) {
 			for i, v := range values {
 				buckets[startTime][i] = append(buckets[startTime][i], v)
 			}
+			log.Println("backets:", buckets)
+
 		}
 
+		for _, tmp := range chunkValues {
+			log.Println("chunk values:", tmp.Tags, tmp.Time, tmp.Value.([]interface{}))
+		}
 		// Now, after the loop above, within each time bucket is a slice. Within the element of each
 		// slice is another slice of interface{}, ready for passing to the reducer functions.
 
@@ -141,19 +147,22 @@ func (e *AggregateExecutor) execute(out chan *models.Row) {
 			values[i] = append(values[i], time.Unix(0, t).UTC()) // Time value is always first.
 
 			for j, f := range reduceFuncs {
+				log.Println("before reduced, value:", buckets[t][j])
 				reducedVal := f(buckets[t][j])
+				log.Println("reduced value:", reducedVal)
 				values[i] = append(values[i], reducedVal)
 			}
 		}
-
+		log.Println("values:", values)
 		// Perform aggregate unwraps
 		values, err = e.processFunctions(values, columnNames)
 		if err != nil {
 			out <- &models.Row{Err: err}
 		}
-
+		log.Println("after process functions, values:", values)
 		// Perform any mathematics.
 		values = processForMath(e.stmt.Fields, values)
+		log.Println("after process for math, values:", values)
 
 		// Handle any fill options
 		values = e.processFill(values)
@@ -167,6 +176,8 @@ func (e *AggregateExecutor) execute(out chan *models.Row) {
 		}
 
 		row.Values = values
+		log.Println("after execute, values:", values)
+
 		out <- row
 	}
 
@@ -608,6 +619,10 @@ func (m *AggregateMapper) Open() error {
 	m.selectTags = mms.SelectTags(m.stmt)
 	m.whereFields = mms.WhereFields(m.stmt)
 
+	log.Println("m.select fields:", m.selectFields)
+	log.Println("m.select tags:", m.selectTags)
+	log.Println("m.where fields:", m.whereFields)
+
 	// Open cursors for each measurement.
 	for _, mm := range mms {
 		if err := m.openMeasurement(mm); err != nil {
@@ -642,6 +657,7 @@ func (m *AggregateMapper) openMeasurement(mm *Measurement) error {
 
 	// Create all cursors for reading the data from this shard.
 	for _, t := range tagSets {
+		log.Println("tag:", t.Tags)
 		cursorSet := CursorSet{
 			Measurement: mm.Name,
 			Tags:        t.Tags,
@@ -654,10 +670,13 @@ func (m *AggregateMapper) openMeasurement(mm *Measurement) error {
 
 		for i, key := range t.SeriesKeys {
 			fields := slices.Union(selectFields, m.fieldNames, false)
+			log.Println("m.field name:", m.fieldNames)
+			log.Println("fields:", fields)
 			c := m.tx.Cursor(key, fields, m.shard.FieldCodec(mm.Name), true)
 			if c == nil {
 				continue
 			}
+			log.Println("cursor:", key, fields, m.shard.FieldCodec(mm.Name))
 
 			seriesTags := m.shard.index.TagsForSeries(key)
 			cursorSet.Cursors = append(cursorSet.Cursors, NewTagsCursor(c, t.Filters[i], seriesTags))
@@ -676,6 +695,7 @@ func (m *AggregateMapper) openMeasurement(mm *Measurement) error {
 func (m *AggregateMapper) initializeMapFunctions() error {
 	// Set up each mapping function for this statement.
 	aggregates := m.stmt.FunctionCalls()
+	log.Println("[pandora] init map functions:", len(aggregates))
 	m.mapFuncs = make([]mapFunc, len(aggregates))
 	m.fieldNames = make([]string, len(m.mapFuncs))
 
@@ -703,7 +723,8 @@ func (m *AggregateMapper) initializeMapFunctions() error {
 			return fmt.Errorf("aggregate call didn't contain a field %s", c.String())
 		}
 	}
-
+	log.Println("map funcs:", m.mapFuncs)
+	log.Println("map field names:", m.fieldNames)
 	return nil
 }
 

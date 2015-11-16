@@ -3,13 +3,14 @@ package cluster
 import (
 	"encoding/json"
 	"fmt"
+	"math/rand"
+	"net"
+	"time"
+
 	"github.com/influxdb/influxdb/influxql"
 	"github.com/influxdb/influxdb/meta"
 	"github.com/influxdb/influxdb/tsdb"
 	"github.com/qiniu/log.v1"
-	"math/rand"
-	"net"
-	"time"
 )
 
 // ShardMapper is responsible for providing mappers for requested shards. It is
@@ -153,12 +154,13 @@ func (r *RemoteMapper) Open() (err error) {
 
 	// Set up each mapping function for this statement.
 	if stmt, ok := r.stmt.(*influxql.SelectStatement); ok {
-		for _, c := range stmt.FunctionCalls() {
+		for i, c := range stmt.FunctionCalls() {
 			fn, err := tsdb.InitializeUnmarshaller(c)
 			if err != nil {
 				return err
 			}
 			r.unmarshallers = append(r.unmarshallers, fn)
+			log.Println("init unmarshallers:", i, c.Name, fn)
 		}
 	}
 
@@ -208,11 +210,13 @@ func (r *RemoteMapper) NextChunk() (chunk interface{}, err error) {
 	if err := json.Unmarshal(response.Data(), moj); err != nil {
 		return nil, err
 	}
+	log.Println("response data:", string(response.Data()))
+	log.Println("moj values:", moj.Values)
 	mvj := []*tsdb.MapperValueJSON{}
 	if err := json.Unmarshal(moj.Values, &mvj); err != nil {
 		return nil, err
 	}
-
+	log.Println("mvj values:", mvj)
 	// Prep the non-JSON version of Mapper output.
 	mo := &tsdb.MapperOutput{
 		Name:   moj.Name,
@@ -226,10 +230,13 @@ func (r *RemoteMapper) NextChunk() (chunk interface{}, err error) {
 		// was mapped.
 		aggValues := []interface{}{}
 		for i, b := range mvj[0].AggData {
+			log.Println("before unmarshal", i, string(b))
+			log.Println("unmarhsallers:", i, r.unmarshallers[i])
 			v, err := r.unmarshallers[i](b)
 			if err != nil {
 				return nil, err
 			}
+			log.Println("after unmarshal,value:", v)
 			aggValues = append(aggValues, v)
 		}
 		if mvj[0].Time != 0 {
@@ -239,6 +246,11 @@ func (r *RemoteMapper) NextChunk() (chunk interface{}, err error) {
 				Tags:  mvj[0].Tags,
 			}}
 
+			log.Println(">>> not raw data: instead:", &tsdb.MapperValue{
+				Time:  mvj[0].Time,
+				Value: aggValues,
+				Tags:  mvj[0].Tags,
+			})
 		} else {
 			mo.Values = []*tsdb.MapperValue{&tsdb.MapperValue{
 				Value: aggValues,
@@ -258,9 +270,16 @@ func (r *RemoteMapper) NextChunk() (chunk interface{}, err error) {
 				Value: rawValue,
 				Tags:  v.Tags,
 			})
+			log.Println(">>> raw data: instead:", &tsdb.MapperValue{
+				Time:  v.Time,
+				Value: rawValue,
+				Tags:  v.Tags,
+			})
 		}
 	}
-
+	for _, tmp := range mo.Values {
+		log.Println(">>>> recieve:", mo.Fields, tmp.Value)
+	}
 	return mo, nil
 }
 

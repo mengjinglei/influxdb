@@ -15,6 +15,7 @@ import (
 	"reflect"
 	"sort"
 
+	"github.com/qiniu/log.v1"
 	// "github.com/davecgh/go-spew/spew"
 	"github.com/influxdb/influxdb/influxql"
 )
@@ -53,6 +54,7 @@ type UnmarshalFunc func([]byte) (interface{}, error)
 func initializeMapFunc(c *influxql.Call) (mapFunc, error) {
 	// see if it's a query for raw data
 	if c == nil {
+		log.Println("init map func nil")
 		return MapRawQuery, nil
 	}
 
@@ -73,6 +75,7 @@ func initializeMapFunc(c *influxql.Call) (mapFunc, error) {
 	case "sum":
 		return MapSum, nil
 	case "mean":
+		log.Println("init map func mean")
 		return MapMean, nil
 	case "median":
 		return MapStddev, nil
@@ -82,6 +85,7 @@ func initializeMapFunc(c *influxql.Call) (mapFunc, error) {
 		}, nil
 	case "max":
 		return func(input *MapInput) interface{} {
+			log.Println("init max func with:", input, c.Fields()[0])
 			return MapMax(input, c.Fields()[0])
 		}, nil
 	case "spread":
@@ -199,6 +203,15 @@ func InitializeUnmarshaller(c *influxql.Call) (UnmarshalFunc, error) {
 			err := json.Unmarshal(b, &o)
 			return &o, err
 		}, nil
+	case "min", "max":
+		return func(b []byte) (interface{}, error) {
+			if string(b) == "null" {
+				return nil, nil
+			}
+			var o minMaxMapOut
+			err := json.Unmarshal(b, &o)
+			return &o, err
+		}, nil
 	case "spread":
 		return func(b []byte) (interface{}, error) {
 			var o spreadMapOutput
@@ -236,6 +249,7 @@ func InitializeUnmarshaller(c *influxql.Call) (UnmarshalFunc, error) {
 			return a, err
 		}, nil
 	default:
+		log.Println("init ", c.Name, " unmarshaller in default")
 		return func(b []byte) (interface{}, error) {
 			var val interface{}
 			err := json.Unmarshal(b, &val)
@@ -451,6 +465,7 @@ func ReduceMean(values []interface{}) interface{} {
 	var total float64
 	var count int
 	for _, v := range values {
+		log.Println("single value:", v)
 		if v, _ := v.(*meanMapOutput); v != nil {
 			count += v.Count
 			total += v.Total
@@ -723,6 +738,16 @@ func decodeValueAndNumberType(v interface{}) (float64, NumberType, bool) {
 
 // MapMax collects the values to pass to the reducer
 func MapMax(input *MapInput, fieldName string) interface{} {
+
+	if len(input.Items) == 0 {
+		log.Println("input length is 0,return nil")
+		return nil
+	}
+
+	if len(input.Items) == 1 {
+		log.Println(">>>> input.items[0]", input.Items[0])
+	}
+	log.Println("lenghth of input :", len(input.Items))
 	max := &minMaxMapOut{}
 
 	pointsYielded := false
@@ -769,10 +794,20 @@ func MapMax(input *MapInput, fieldName string) interface{} {
 
 // ReduceMax computes the max of value.
 func ReduceMax(values []interface{}) interface{} {
+	log.Println("start to reduce max, values:", values)
+
 	var curr *minMaxMapOut
 	for _, value := range values {
+		log.Println("single value:", value)
 		v, _ := value.(*minMaxMapOut)
 		if v == nil {
+			var val minMaxMapOut
+			vtmp, ok := value.([]byte)
+			if ok {
+				err := json.Unmarshal(vtmp, &val)
+				log.Println("type assertion fail", err)
+			}
+			log.Println("type assertion fail")
 			continue
 		}
 
@@ -783,8 +818,10 @@ func ReduceMax(values []interface{}) interface{} {
 	}
 
 	if curr == nil {
+		log.Println("cur is nil")
 		return nil
 	}
+	log.Println("cur max is:", curr.Val)
 
 	switch curr.Type {
 	case Float64Type:

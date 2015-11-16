@@ -702,7 +702,7 @@ func (q *QueryExecutor) PlanShowTagKeys(stmt *influxql.ShowTagKeysStatement, dat
 
 func (q *QueryExecutor) executeStatement(statementID int, stmt influxql.Statement, database string, results chan *influxql.Result, chunkSize int) error {
 	// Plan statement execution.
-	fmt.Println("[pandora] start to execute statement", stmt.String(), database)
+	fmt.Println("[pandora] start to execute select statement", stmt.String(), database)
 	e, err := q.planStatement(stmt, database, chunkSize)
 	if err != nil {
 		return err
