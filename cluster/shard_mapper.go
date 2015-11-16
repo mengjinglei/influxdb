@@ -3,13 +3,13 @@ package cluster
 import (
 	"encoding/json"
 	"fmt"
-	"math/rand"
-	"net"
-	"time"
-
 	"github.com/influxdb/influxdb/influxql"
 	"github.com/influxdb/influxdb/meta"
 	"github.com/influxdb/influxdb/tsdb"
+	"github.com/qiniu/log.v1"
+	"math/rand"
+	"net"
+	"time"
 )
 
 // ShardMapper is responsible for providing mappers for requested shards. It is
@@ -44,6 +44,7 @@ func (s *ShardMapper) CreateMapper(sh meta.ShardInfo, stmt influxql.Statement, c
 	// Create a remote mapper if the local node doesn't own the shard.
 	if !sh.OwnedBy(s.MetaStore.NodeID()) || s.ForceRemoteMapping {
 		// Pick a node in a pseudo-random manner.
+		log.Println("[pandora] create remote mapper")
 		conn, err := s.dial(sh.Owners[rand.Intn(len(sh.Owners))].NodeID)
 		if err != nil {
 			return nil, err
@@ -58,7 +59,7 @@ func (s *ShardMapper) CreateMapper(sh meta.ShardInfo, stmt influxql.Statement, c
 	if err != nil {
 		return nil, err
 	}
-
+	log.Println("[pandora] create local mapper")
 	return m, nil
 }
 
@@ -96,6 +97,7 @@ type RemoteMapper struct {
 
 // NewRemoteMapper returns a new remote mapper using the given connection.
 func NewRemoteMapper(c net.Conn, shardID uint64, stmt influxql.Statement, chunkSize int) *RemoteMapper {
+	log.Println("new a remote mapper:", shardID, stmt.String())
 	return &RemoteMapper{
 		conn:      c,
 		shardID:   shardID,
@@ -230,10 +232,19 @@ func (r *RemoteMapper) NextChunk() (chunk interface{}, err error) {
 			}
 			aggValues = append(aggValues, v)
 		}
-		mo.Values = []*tsdb.MapperValue{&tsdb.MapperValue{
-			Value: aggValues,
-			Tags:  mvj[0].Tags,
-		}}
+		if mvj[0].Time != 0 {
+			mo.Values = []*tsdb.MapperValue{&tsdb.MapperValue{
+				Time:  mvj[0].Time,
+				Value: aggValues,
+				Tags:  mvj[0].Tags,
+			}}
+
+		} else {
+			mo.Values = []*tsdb.MapperValue{&tsdb.MapperValue{
+				Value: aggValues,
+				Tags:  mvj[0].Tags,
+			}}
+		}
 	} else {
 		// Must be raw data instead.
 		for _, v := range mvj {

@@ -302,6 +302,7 @@ func (q *QueryExecutor) PlanSelect(stmt *influxql.SelectStatement, chunkSize int
 		return NewRawExecutor(stmt, mappers, chunkSize), nil
 	} else {
 		fmt.Println("[debug] new aggregate executor", stmt.Fields.Names())
+		log.Println("mappers:", mappers)
 		return NewAggregateExecutor(stmt, mappers), nil
 	}
 }

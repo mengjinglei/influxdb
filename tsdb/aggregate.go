@@ -3,13 +3,13 @@ package tsdb
 import (
 	"errors"
 	"fmt"
-	"sort"
-	"strings"
-	"time"
-
 	"github.com/influxdb/influxdb/influxql"
 	"github.com/influxdb/influxdb/models"
 	"github.com/influxdb/influxdb/pkg/slices"
+	"github.com/qiniu/log.v1"
+	"sort"
+	"strings"
+	"time"
 )
 
 // AggregateExecutor represents a mapper for execute aggregate SELECT statements.
@@ -524,6 +524,7 @@ type AggregateMapper struct {
 
 // NewAggregateMapper returns a new instance of AggregateMapper.
 func NewAggregateMapper(sh *Shard, stmt *influxql.SelectStatement) *AggregateMapper {
+	log.Printf("new aggregate mapper for shardID:%v,stmt:%v\n", sh.id, stmt.String())
 	return &AggregateMapper{
 		shard: sh,
 		stmt:  stmt,
@@ -533,6 +534,7 @@ func NewAggregateMapper(sh *Shard, stmt *influxql.SelectStatement) *AggregateMap
 // Open opens and initializes the mapper.
 func (m *AggregateMapper) Open() error {
 	// Ignore if node has the shard but hasn't written to it yet.
+	log.Println("open aggregate mapper, stmt:", m.stmt.String())
 	if m.shard == nil {
 		return nil
 	}
@@ -542,6 +544,8 @@ func (m *AggregateMapper) Open() error {
 	if err != nil {
 		return err
 	}
+	log.Printf("before rewrite select statement:%v, after: %v", m.stmt.String(), stmt.String())
+
 	m.stmt = stmt
 
 	// Set all time-related parameters on the mapper.

@@ -877,9 +877,9 @@ func (p *Parser) parseSelectStatement(tr targetRequirement) (*SelectStatement, e
 		if _, ok := n.(*Call); ok {
 			stmt.IsRawQuery = false
 		}
-		if _, ok := n.(*BinaryExpr); ok {
-			stmt.IsRawQuery = false
-		}
+		//if _, ok := n.(*BinaryExpr); ok {
+		//	stmt.IsRawQuery = false
+		//}
 	})
 
 	if err := stmt.validate(tr); err != nil {

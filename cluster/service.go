@@ -166,6 +166,7 @@ func (s *Service) handleConn(conn net.Conn) {
 			s.writeShardResponse(conn, err)
 		case mapShardRequestMessage:
 			s.statMap.Add(mapShardReq, 1)
+			log.Println("start to process map shard request")
 			err := s.processMapShardRequest(conn, buf)
 			if err != nil {
 				s.Logger.Printf("process map shard error: %s", err)
@@ -253,7 +254,7 @@ func (s *Service) processMapShardRequest(w io.Writer, buf []byte) error {
 	if err := req.UnmarshalBinary(buf); err != nil {
 		return err
 	}
-
+	log.Println("[pandora] process map shard request", req.Query())
 	// Parse the statement.
 	q, err := influxql.ParseQuery(req.Query())
 	if err != nil {
@@ -261,7 +262,7 @@ func (s *Service) processMapShardRequest(w io.Writer, buf []byte) error {
 	} else if len(q.Statements) != 1 {
 		return fmt.Errorf("processing map shard: expected 1 statement but got %d", len(q.Statements))
 	}
-
+	log.Println("[pandora] ", q.String(), q.Statements[0].String())
 	m, err := s.TSDBStore.CreateMapper(req.ShardID(), q.Statements[0], int(req.ChunkSize()))
 	if err != nil {
 		return fmt.Errorf("create mapper: %s", err)
@@ -294,6 +295,7 @@ func (s *Service) processMapShardRequest(w io.Writer, buf []byte) error {
 		// empty response to let the other side know we're out of data.
 
 		if chunk != nil {
+			log.Println("[pandora] resp:", chunk)
 			b, err := json.Marshal(chunk)
 			if err != nil {
 				return fmt.Errorf("encoding: %s", err)

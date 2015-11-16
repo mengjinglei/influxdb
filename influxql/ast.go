@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/influxdb/influxdb/pkg/slices"
+	"github.com/qiniu/log.v1"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/influxdb/influxdb/pkg/slices"
 )
 
 // DataType represents the primitive data types available in InfluxQL.
@@ -1578,6 +1578,7 @@ func walkNames(exp Expr) []string {
 func (s *SelectStatement) FunctionCalls() []*Call {
 	var a []*Call
 	for _, f := range s.Fields {
+		log.Println("start walk field:", f.Expr.String())
 		a = append(a, walkFunctionCalls(f.Expr)...)
 	}
 	return a
@@ -1598,6 +1599,7 @@ func walkFunctionCalls(exp Expr) []*Call {
 	case *VarRef:
 		return nil
 	case *Call:
+		log.Println("walk func call type: call, expr:", expr.String())
 		return []*Call{expr}
 	case *BinaryExpr:
 		var ret []*Call
