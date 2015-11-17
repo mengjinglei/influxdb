@@ -921,12 +921,13 @@ func TestInitializeUnmarshallerMaxMin(t *testing.T) {
 			t.Errorf("unmarshaller unmarshal %v fail with error:%v", &test.input, err)
 		}
 
+		//if input is "null" then the unmarshal output is expect to be nil
 		if string(test.input) == "null" && unmarshallOutput != nil {
 			t.Errorf("initialize unmarshaller, \nexp\n %v\ngot\n %v", nil, spew.Sdump(unmarshallOutput))
 			continue
 		}
 
-		// initialize a reducer that can take output of unmarshaller as input
+		// initialize a reducer that can take the output of unmarshaller as input
 		reducer, err := initializeReduceFunc(test.call)
 		if err != nil {
 			t.Errorf("initialize %v reduce function fail with error:%v", test.Name, err)
