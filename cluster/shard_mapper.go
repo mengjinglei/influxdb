@@ -211,12 +211,13 @@ func (r *RemoteMapper) NextChunk() (chunk interface{}, err error) {
 		return nil, err
 	}
 	log.Println("response data:", string(response.Data()))
-	log.Println("moj values:", moj.Values)
+	log.Println("moj:", moj)
+	log.Println("moj values:", string(moj.Values))
 	mvj := []*tsdb.MapperValueJSON{}
 	if err := json.Unmarshal(moj.Values, &mvj); err != nil {
 		return nil, err
 	}
-	log.Println("mvj values:", mvj)
+	log.Println("mvj values:", &mvj)
 	// Prep the non-JSON version of Mapper output.
 	mo := &tsdb.MapperOutput{
 		Name:   moj.Name,
@@ -280,6 +281,7 @@ func (r *RemoteMapper) NextChunk() (chunk interface{}, err error) {
 	for _, tmp := range mo.Values {
 		log.Println(">>>> recieve:", mo.Fields, tmp.Value)
 	}
+	log.Println(">>>> recieve total:", mo.Values)
 	return mo, nil
 }
 
