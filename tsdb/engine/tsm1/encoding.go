@@ -11,16 +11,16 @@ import (
 
 const (
 	// BlockFloat64 designates a block encodes float64 values
-	BlockFloat64 = 0
+	BlockFloat64 = byte(0)
 
 	// BlockInt64 designates a block encodes int64 values
-	BlockInt64 = 1
+	BlockInt64 = byte(1)
 
 	// BlockBool designates a block encodes bool values
-	BlockBool = 2
+	BlockBool = byte(2)
 
 	// BlockString designates a block encodes string values
-	BlockString = 3
+	BlockString = byte(3)
 
 	// encodedBlockHeaderSize is the size of the header for an encoded block.  The first 8 bytes
 	// are the minimum timestamp of the block.  The next byte is a block encoding type indicator.
@@ -69,6 +69,14 @@ func (a Values) MaxTime() int64 {
 	return a[len(a)-1].Time().UnixNano()
 }
 
+func (a Values) Size() int {
+	sz := 0
+	for _, v := range a {
+		sz += v.Size()
+	}
+	return sz
+}
+
 // Encode converts the values to a byte slice.  If there are no values,
 // this function panics.
 func (a Values) Encode(buf []byte) ([]byte, error) {
@@ -76,37 +84,83 @@ func (a Values) Encode(buf []byte) ([]byte, error) {
 		panic("unable to encode block type")
 	}
 
-	switch a[0].(type) {
-	case *FloatValue:
+	switch a[0].Value().(type) {
+	case float64:
 		return encodeFloatBlock(buf, a)
-	case *Int64Value:
+	case int64:
 		return encodeInt64Block(buf, a)
-	case *BoolValue:
+	case bool:
 		return encodeBoolBlock(buf, a)
-	case *StringValue:
+	case string:
 		return encodeStringBlock(buf, a)
 	}
 
 	return nil, fmt.Errorf("unsupported value type %T", a[0])
 }
 
+// BlockType returns the type of value encoded in a block or an error
+// if the block type is unknown.
+func BlockType(block []byte) (byte, error) {
+	blockType := block[8]
+	switch blockType {
+	case BlockFloat64, BlockInt64, BlockBool, BlockString:
+		return blockType, nil
+	default:
+		return 0, fmt.Errorf("unknown block type: %d", blockType)
+	}
+}
+
 // DecodeBlock takes a byte array and will decode into values of the appropriate type
-// based on the block
-func DecodeBlock(block []byte, vals *[]Value) error {
+// based on the block.
+func DecodeBlock(block []byte, vals []Value) ([]Value, error) {
 	if len(block) <= encodedBlockHeaderSize {
 		panic(fmt.Sprintf("decode of short block: got %v, exp %v", len(block), encodedBlockHeaderSize))
 	}
 
-	blockType := block[8]
+	blockType, err := BlockType(block)
+	if err != nil {
+		return nil, err
+	}
 	switch blockType {
 	case BlockFloat64:
-		return decodeFloatBlock(block, vals)
+		decoded, err := DecodeFloatBlock(block, nil)
+		if len(vals) < len(decoded) {
+			vals = make([]Value, len(decoded))
+		}
+		for i := range decoded {
+			vals[i] = decoded[i]
+		}
+		return vals, err
 	case BlockInt64:
-		return decodeInt64Block(block, vals)
+		decoded, err := DecodeInt64Block(block, nil)
+		if len(vals) < len(decoded) {
+			vals = make([]Value, len(decoded))
+		}
+		for i := range decoded {
+			vals[i] = decoded[i]
+		}
+		return vals, err
+
 	case BlockBool:
-		return decodeBoolBlock(block, vals)
+		decoded, err := DecodeBoolBlock(block, nil)
+		if len(vals) < len(decoded) {
+			vals = make([]Value, len(decoded))
+		}
+		for i := range decoded {
+			vals[i] = decoded[i]
+		}
+		return vals, err
+
 	case BlockString:
-		return decodeStringBlock(block, vals)
+		decoded, err := DecodeStringBlock(block, nil)
+		if len(vals) < len(decoded) {
+			vals = make([]Value, len(decoded))
+		}
+		for i := range decoded {
+			vals[i] = decoded[i]
+		}
+		return vals, err
+
 	default:
 		panic(fmt.Sprintf("unknown block type: %d", blockType))
 	}
@@ -173,7 +227,7 @@ func encodeFloatBlock(buf []byte, values []Value) ([]byte, error) {
 
 	for _, v := range values {
 		tsenc.Write(v.Time())
-		venc.Push(v.(*FloatValue).value)
+		venc.Push(v.Value().(float64))
 	}
 	venc.Finish()
 
@@ -195,14 +249,14 @@ func encodeFloatBlock(buf []byte, values []Value) ([]byte, error) {
 	return block, nil
 }
 
-func decodeFloatBlock(block []byte, a *[]Value) error {
+func DecodeFloatBlock(block []byte, a []*FloatValue) ([]*FloatValue, error) {
 	// The first 8 bytes is the minimum timestamp of the block
 	block = block[8:]
 
 	// Block type is the next block, make sure we actually have a float block
 	blockType := block[0]
 	if blockType != BlockFloat64 {
-		return fmt.Errorf("invalid block type: exp %d, got %d", BlockFloat64, blockType)
+		return nil, fmt.Errorf("invalid block type: exp %d, got %d", BlockFloat64, blockType)
 	}
 	block = block[1:]
 
@@ -212,26 +266,33 @@ func decodeFloatBlock(block []byte, a *[]Value) error {
 	dec := NewTimeDecoder(tb)
 	iter, err := NewFloatDecoder(vb)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Decode both a timestamp and value
+	i := 0
 	for dec.Next() && iter.Next() {
 		ts := dec.Read()
 		v := iter.Values()
-		*a = append(*a, &FloatValue{ts, v})
+		if i < len(a) && a[i] != nil {
+			a[i].time = ts
+			a[i].value = v
+		} else {
+			a = append(a, &FloatValue{ts, v})
+		}
+		i++
 	}
 
 	// Did timestamp decoding have an error?
 	if dec.Error() != nil {
-		return dec.Error()
+		return nil, dec.Error()
 	}
 	// Did float decoding have an error?
 	if iter.Error() != nil {
-		return iter.Error()
+		return nil, iter.Error()
 	}
 
-	return nil
+	return a[:i], nil
 }
 
 type BoolValue struct {
@@ -271,7 +332,7 @@ func encodeBoolBlock(buf []byte, values []Value) ([]byte, error) {
 
 	for _, v := range values {
 		tsenc.Write(v.Time())
-		venc.Write(v.(*BoolValue).value)
+		venc.Write(v.Value().(bool))
 	}
 
 	// Encoded timestamp values
@@ -292,14 +353,14 @@ func encodeBoolBlock(buf []byte, values []Value) ([]byte, error) {
 	return block, nil
 }
 
-func decodeBoolBlock(block []byte, a *[]Value) error {
+func DecodeBoolBlock(block []byte, a []*BoolValue) ([]*BoolValue, error) {
 	// The first 8 bytes is the minimum timestamp of the block
 	block = block[8:]
 
 	// Block type is the next block, make sure we actually have a float block
 	blockType := block[0]
 	if blockType != BlockBool {
-		return fmt.Errorf("invalid block type: exp %d, got %d", BlockBool, blockType)
+		return nil, fmt.Errorf("invalid block type: exp %d, got %d", BlockBool, blockType)
 	}
 	block = block[1:]
 
@@ -310,22 +371,29 @@ func decodeBoolBlock(block []byte, a *[]Value) error {
 	vdec := NewBoolDecoder(vb)
 
 	// Decode both a timestamp and value
+	i := 0
 	for dec.Next() && vdec.Next() {
 		ts := dec.Read()
 		v := vdec.Read()
-		*a = append(*a, &BoolValue{ts, v})
+		if i < len(a) && a[i] != nil {
+			a[i].time = ts
+			a[i].value = v
+		} else {
+			a = append(a, &BoolValue{ts, v})
+		}
+		i++
 	}
 
 	// Did timestamp decoding have an error?
 	if dec.Error() != nil {
-		return dec.Error()
+		return nil, dec.Error()
 	}
 	// Did bool decoding have an error?
 	if vdec.Error() != nil {
-		return vdec.Error()
+		return nil, vdec.Error()
 	}
 
-	return nil
+	return a[:i], nil
 }
 
 type Int64Value struct {
@@ -356,7 +424,7 @@ func encodeInt64Block(buf []byte, values []Value) ([]byte, error) {
 	vEnc := NewInt64Encoder()
 	for _, v := range values {
 		tsEnc.Write(v.Time())
-		vEnc.Write(v.(*Int64Value).value)
+		vEnc.Write(v.Value().(int64))
 	}
 
 	// Encoded timestamp values
@@ -375,13 +443,13 @@ func encodeInt64Block(buf []byte, values []Value) ([]byte, error) {
 	return append(block, packBlock(tb, vb)...), nil
 }
 
-func decodeInt64Block(block []byte, a *[]Value) error {
+func DecodeInt64Block(block []byte, a []*Int64Value) ([]*Int64Value, error) {
 	// slice off the first 8 bytes (min timestmap for the block)
 	block = block[8:]
 
 	blockType := block[0]
 	if blockType != BlockInt64 {
-		return fmt.Errorf("invalid block type: exp %d, got %d", BlockInt64, blockType)
+		return nil, fmt.Errorf("invalid block type: exp %d, got %d", BlockInt64, blockType)
 	}
 
 	block = block[1:]
@@ -394,22 +462,29 @@ func decodeInt64Block(block []byte, a *[]Value) error {
 	vDec := NewInt64Decoder(vb)
 
 	// Decode both a timestamp and value
+	i := 0
 	for tsDec.Next() && vDec.Next() {
 		ts := tsDec.Read()
 		v := vDec.Read()
-		*a = append(*a, &Int64Value{ts, v})
+		if i < len(a) && a[i] != nil {
+			a[i].time = ts
+			a[i].value = v
+		} else {
+			a = append(a, &Int64Value{ts, v})
+		}
+		i++
 	}
 
 	// Did timestamp decoding have an error?
 	if tsDec.Error() != nil {
-		return tsDec.Error()
+		return nil, tsDec.Error()
 	}
 	// Did int64 decoding have an error?
 	if vDec.Error() != nil {
-		return vDec.Error()
+		return nil, vDec.Error()
 	}
 
-	return nil
+	return a[:i], nil
 }
 
 type StringValue struct {
@@ -440,7 +515,7 @@ func encodeStringBlock(buf []byte, values []Value) ([]byte, error) {
 	vEnc := NewStringEncoder()
 	for _, v := range values {
 		tsEnc.Write(v.Time())
-		vEnc.Write(v.(*StringValue).value)
+		vEnc.Write(v.Value().(string))
 	}
 
 	// Encoded timestamp values
@@ -459,13 +534,13 @@ func encodeStringBlock(buf []byte, values []Value) ([]byte, error) {
 	return append(block, packBlock(tb, vb)...), nil
 }
 
-func decodeStringBlock(block []byte, a *[]Value) error {
+func DecodeStringBlock(block []byte, a []*StringValue) ([]*StringValue, error) {
 	// slice off the first 8 bytes (min timestmap for the block)
 	block = block[8:]
 
 	blockType := block[0]
 	if blockType != BlockString {
-		return fmt.Errorf("invalid block type: exp %d, got %d", BlockString, blockType)
+		return nil, fmt.Errorf("invalid block type: exp %d, got %d", BlockString, blockType)
 	}
 
 	block = block[1:]
@@ -477,26 +552,33 @@ func decodeStringBlock(block []byte, a *[]Value) error {
 	tsDec := NewTimeDecoder(tb)
 	vDec, err := NewStringDecoder(vb)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Decode both a timestamp and value
+	i := 0
 	for tsDec.Next() && vDec.Next() {
 		ts := tsDec.Read()
 		v := vDec.Read()
-		*a = append(*a, &StringValue{ts, v})
+		if i < len(a) && a[i] != nil {
+			a[i].time = ts
+			a[i].value = v
+		} else {
+			a = append(a, &StringValue{ts, v})
+		}
+		i++
 	}
 
 	// Did timestamp decoding have an error?
 	if tsDec.Error() != nil {
-		return tsDec.Error()
+		return nil, tsDec.Error()
 	}
 	// Did string decoding have an error?
 	if vDec.Error() != nil {
-		return vDec.Error()
+		return nil, vDec.Error()
 	}
 
-	return nil
+	return a[:i], nil
 }
 
 func packBlockHeader(firstTime time.Time, blockType byte) []byte {

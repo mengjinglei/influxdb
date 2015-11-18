@@ -157,19 +157,19 @@ type TagSetCursor struct {
 	SelectFields []string // fields to be selected
 
 	// Min-heap of cursors ordered by timestamp.
-	heap *pointHeap
+	heap heap.Interface
 
 	// Memoize the cursor's tagset-based key.
 	memokey string
 }
 
 // NewTagSetCursor returns a instance of TagSetCursor.
-func NewTagSetCursor(m string, t map[string]string, c []*TagsCursor) *TagSetCursor {
+func NewTagSetCursor(m string, t map[string]string, c []*TagsCursor, ascending bool) *TagSetCursor {
 	return &TagSetCursor{
 		measurement: m,
 		tags:        t,
 		cursors:     c,
-		heap:        newPointHeap(),
+		heap:        newPointHeap(ascending),
 	}
 }
 
@@ -185,8 +185,6 @@ func (tsc *TagSetCursor) key() string {
 }
 
 func (tsc *TagSetCursor) Init(seek int64) {
-	tsc.heap = newPointHeap()
-
 	// Prime the buffers.
 	for i := 0; i < len(tsc.cursors); i++ {
 		k, v := tsc.cursors[i].SeekTo(seek)
@@ -218,7 +216,7 @@ func (tsc *TagSetCursor) Next(tmin, tmax int64) (int64, interface{}) {
 		p := heap.Pop(tsc.heap).(*pointHeapItem)
 
 		// We're done if the point is outside the query's time range [tmin:tmax).
-		if p.timestamp != tmin && (p.timestamp < tmin || p.timestamp >= tmax) {
+		if p.timestamp != tmin && (p.timestamp < tmin || p.timestamp > tmax) {
 			return -1, nil
 		}
 
@@ -297,11 +295,22 @@ type pointHeapItem struct {
 }
 
 type pointHeap []*pointHeapItem
+type pointHeapReverse struct {
+	pointHeap
+}
 
-func newPointHeap() *pointHeap {
+func newPointHeap(ascending bool) heap.Interface {
 	q := make(pointHeap, 0)
 	heap.Init(&q)
-	return &q
+	if ascending {
+		return &q
+	} else {
+		return &pointHeapReverse{q}
+	}
+}
+
+func (pq *pointHeapReverse) Less(i, j int) bool {
+	return pq.pointHeap[i].timestamp > pq.pointHeap[j].timestamp
 }
 
 func (pq pointHeap) Len() int { return len(pq) }
