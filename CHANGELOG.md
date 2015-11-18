@@ -1,8 +1,11 @@
 ## v0.9.6 [unreleased]
 
 ### Features
+- [#4790](https://github.com/influxdb/influxdb/pull/4790): Allow openTSDB point-level error logging to be disabled
 
 ### Bugfixes
+- [#4768](https://github.com/influxdb/influxdb/pull/4768): CLI history skips blank lines. Thanks @pires
+- [#4766](https://github.com/influxdb/influxdb/pull/4766): Update CLI usage output. Thanks @aneshas
 
 ## v0.9.5 [unreleased]
 
@@ -53,7 +56,8 @@ There are breaking changes in this release:
 - [#4685](https://github.com/influxdb/influxdb/pull/4685): Automatically promote node to raft peer if drop server results in removing a raft peer.
 
 ### Bugfixes
-- [#4778](https://github.com/influxdb/influxdb/pull/4778): If there are no points to count, count is 0. Fixes [#4701](https://github.com/influxdb/influxdb/issues/4701)
+- [#4789](https://github.com/influxdb/influxdb/pull/4789): Decode WHERE fields during aggregates. Fix [issue #4701](https://github.com/influxdb/influxdb/issues/4701).
+- [#4778](https://github.com/influxdb/influxdb/pull/4778): If there are no points to count, count is 0.
 - [#4715](https://github.com/influxdb/influxdb/pull/4715): Fix panic during Raft-close. Fix [issue #4707](https://github.com/influxdb/influxdb/issues/4707). Thanks @oiooj
 - [#4643](https://github.com/influxdb/influxdb/pull/4643): Fix panic during backup restoration. Thanks @oiooj
 - [#4632](https://github.com/influxdb/influxdb/pull/4632): Fix parsing of IPv6 hosts in client package. Thanks @miguelxpn

@@ -10,7 +10,6 @@ import (
 	"github.com/influxdb/influxdb/influxql"
 	"github.com/influxdb/influxdb/models"
 	"github.com/influxdb/influxdb/pkg/slices"
-	"github.com/qiniu/log.v1"
 )
 
 // AggregateExecutor represents a mapper for execute aggregate SELECT statements.
@@ -669,9 +668,7 @@ func (m *AggregateMapper) openMeasurement(mm *Measurement) error {
 		}
 
 		for i, key := range t.SeriesKeys {
-			fields := slices.Union(selectFields, m.fieldNames, false)
-			log.Println("m.field name:", m.fieldNames)
-			log.Println("fields:", fields)
+			fields := slices.Union(slices.Union(selectFields, m.fieldNames, false), m.whereFields, false)
 			c := m.tx.Cursor(key, fields, m.shard.FieldCodec(mm.Name), true)
 			if c == nil {
 				continue
