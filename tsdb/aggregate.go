@@ -535,7 +535,7 @@ type AggregateMapper struct {
 
 // NewAggregateMapper returns a new instance of AggregateMapper.
 func NewAggregateMapper(sh *Shard, stmt *influxql.SelectStatement) *AggregateMapper {
-	log.Printf("new aggregate mapper for shardID:%v,stmt:%v\n", sh.id, stmt.String())
+	//	log.Printf("new aggregate mapper for shardID:%v,stmt:%v\n", sh.id, stmt.String())
 	return &AggregateMapper{
 		shard: sh,
 		stmt:  stmt,

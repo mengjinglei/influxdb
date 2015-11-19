@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/influxdb/influxdb/pkg/slices"
-	"github.com/qiniu/log.v1"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/influxdb/influxdb/pkg/slices"
+	"github.com/qiniu/log.v1"
 )
 
 // DataType represents the primitive data types available in InfluxQL.
@@ -2318,6 +2319,7 @@ type Fields []*Field
 // AliasNames returns a list of calculated field names in
 // order of alias, function name, then field.
 func (a Fields) AliasNames() []string {
+
 	names := []string{}
 	for _, f := range a {
 		names = append(names, f.Name())
@@ -2329,16 +2331,15 @@ func (a Fields) AliasNames() []string {
 func (a Fields) Names() []string {
 	names := []string{}
 	for _, f := range a {
-		var name string
 		switch expr := f.Expr.(type) {
 		case *Call:
-			name = expr.Name
+			names = append(names, expr.Name)
 		case *VarRef:
-			name = expr.Val
-		default:
-			name = expr.String()
+			names = append(names, expr.Val)
+		case *BinaryExpr:
+			names = append(names, walkNames(expr)...)
 		}
-		names = append(names, name)
+
 	}
 	return names
 }

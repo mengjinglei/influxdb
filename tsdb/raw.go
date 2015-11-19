@@ -443,13 +443,18 @@ func (r *limitedRowWriter) Flush() {
 
 // processValues emits the given values in a single row.
 func (r *limitedRowWriter) processValues(values []*MapperValue) *models.Row {
+	log.Println("process values:", len(values))
+	for _, value := range values {
+		log.Println(value.Time, value.Tags, value.Value)
+	}
 	defer func() {
 		r.totalSent += len(values)
 	}()
 
 	selectNames := r.selectNames
 	aliasNames := r.aliasNames
-
+	log.Println("select names:", len(selectNames), selectNames)
+	log.Println("alias names:", len(aliasNames), aliasNames)
 	if r.transformer != nil {
 		values = r.transformer.Process(values)
 	}
@@ -475,11 +480,21 @@ func (r *limitedRowWriter) processValues(values []*MapperValue) *models.Row {
 
 	// since selectNames can contain tags, we need to strip them out
 	selectFields := make([]string, 0, len(selectNames))
-	aliasFields := make([]string, 0, len(selectNames))
+	aliasFields := make([]string, 0, len(aliasNames))
 
+	log.Println("select fields:", selectFields)
+	log.Println("alias fields:", aliasFields)
+	log.Println("r tags:", r.tags)
 	for i, n := range selectNames {
+		log.Println(i, n)
 		if _, found := r.tags[n]; !found {
 			selectFields = append(selectFields, n)
+		}
+	}
+
+	for i, n := range aliasNames {
+		log.Println(i, n)
+		if _, found := r.tags[n]; !found {
 			aliasFields = append(aliasFields, aliasNames[i])
 		}
 	}
@@ -497,6 +512,7 @@ func (r *limitedRowWriter) processValues(values []*MapperValue) *models.Row {
 
 	// if they've selected only a single value we have to handle things a little differently
 	singleValue := len(selectFields) == SelectColumnCountWithOneValue
+	log.Println("single value:", singleValue)
 
 	// the results will have all of the raw mapper results, convert into the row
 	for _, v := range values {
@@ -534,7 +550,7 @@ func (r *limitedRowWriter) processValues(values []*MapperValue) *models.Row {
 
 		row.Values = append(row.Values, vals)
 	}
-
+	log.Println("after process, values:", row.Values)
 	// Perform any mathematical post-processing.
 	row.Values = processForMath(r.fields, row.Values)
 
