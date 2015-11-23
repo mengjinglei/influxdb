@@ -12,8 +12,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/hashicorp/raft"
 	"github.com/hashicorp/raft-boltdb"
+	"github.com/qiniu/log.v1"
 )
 
 // raftState abstracts the interaction of the raft consensus layer
@@ -102,12 +104,12 @@ func (r *localRaft) invalidate() error {
 
 func (r *localRaft) open() error {
 	r.closing = make(chan struct{})
-
+	log.Println("open local raft")
 	s := r.store
 	// Setup raft configuration.
 	config := raft.DefaultConfig()
 	config.LogOutput = ioutil.Discard
-
+	log.Println("default raft config", spew.Sdump(config))
 	if s.clusterTracingEnabled {
 		config.Logger = s.Logger
 	}
@@ -118,7 +120,7 @@ func (r *localRaft) open() error {
 	// Since we actually never call `removePeer` this is safe.
 	// If in the future we decide to call remove peer we have to re-evaluate how to handle this
 	config.ShutdownOnRemove = false
-
+	log.Println("s.peers:", s.peers)
 	// If no peers are set in the config or there is one and we are it, then start as a single server.
 	if len(s.peers) <= 1 {
 		config.EnableSingleNode = true
@@ -128,10 +130,10 @@ func (r *localRaft) open() error {
 
 	// Build raft layer to multiplex listener.
 	r.raftLayer = newRaftLayer(s.RaftListener, s.RemoteAddr)
-
+	log.Println("r.raftLayer:", r.raftLayer)
 	// Create a transport layer
 	r.transport = raft.NewNetworkTransport(r.raftLayer, 3, 10*time.Second, config.LogOutput)
-
+	log.Println("r.transport:", r.transport)
 	// Create peer storage.
 	r.peerStore = raft.NewJSONPeers(s.path, r.transport)
 
@@ -139,6 +141,7 @@ func (r *localRaft) open() error {
 	if err != nil {
 		return err
 	}
+	log.Println("peerStore.peers:", peers)
 
 	// For single-node clusters, we can update the raft peers before we start the cluster if the hostname
 	// has changed.
@@ -170,7 +173,7 @@ func (r *localRaft) open() error {
 	if err != nil {
 		return fmt.Errorf("file snapshot store: %s", err)
 	}
-
+	log.Println("store:", store)
 	// Create raft log.
 	ra, err := raft.NewRaft(config, (*storeFSM)(s), store, store, snapshots, r.peerStore, r.transport)
 	if err != nil {
@@ -198,6 +201,7 @@ func (r *localRaft) logLeaderChanges() {
 				r.store.Logger.Printf("failed to lookup peers: %v", err)
 			}
 			r.store.Logger.Printf("%v. peers=%v", r.raft.String(), peers)
+			log.Println("log leader changes")
 		}
 	}
 }
@@ -228,6 +232,7 @@ func (r *localRaft) close() error {
 }
 
 func (r *localRaft) initialize() error {
+	log.Println("initilize localraft")
 	s := r.store
 	// If we have committed entries then the store is already in the cluster.
 	if index, err := r.raftStore.LastIndex(); err != nil {
@@ -235,7 +240,7 @@ func (r *localRaft) initialize() error {
 	} else if index > 0 {
 		return nil
 	}
-
+	log.Println("s.peers, force set peers:", s.peers)
 	// Force set peers.
 	if err := r.setPeers(s.peers); err != nil {
 		return fmt.Errorf("set raft peers: %s", err)
