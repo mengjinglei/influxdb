@@ -467,7 +467,7 @@ func (s *Store) promoteNodeToPeer() error {
 	if err != nil {
 		return err
 	}
-
+	log.Println("promote node to peer, peers:", peers)
 	nodes := s.data.Nodes
 	var nonraft NodeInfos
 	for _, n := range nodes {
@@ -475,8 +475,9 @@ func (s *Store) promoteNodeToPeer() error {
 			continue
 		}
 		nonraft = append(nonraft, n)
+		log.Println("append:", n.Host)
 	}
-
+	log.Println("non raft:", nonraft)
 	// Check to see if any action is required or possible
 	if len(peers) >= 3 || len(nonraft) == 0 {
 		return nil
