@@ -240,7 +240,7 @@ func (r *localRaft) initialize() error {
 	} else if index > 0 {
 		return nil
 	}
-	log.Println("s.peers, force set peers:", s.peers)
+	//log.Println("s.peers, force set peers:", s.peers)
 	// Force set peers.
 	if err := r.setPeers(s.peers); err != nil {
 		return fmt.Errorf("set raft peers: %s", err)

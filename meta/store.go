@@ -20,6 +20,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/hashicorp/raft"
 	"github.com/influxdb/influxdb/influxql"
@@ -213,6 +215,8 @@ func (s *Store) Open() error {
 			return err
 		}
 
+		//log.Println("s.raftState", spew.Sdump(s.raftState.peers()))
+
 		// Create the root directory if it doesn't already exist.
 		if err := s.createRootDir(); err != nil {
 			return fmt.Errorf("mkdir all: %s", err)
@@ -222,11 +226,13 @@ func (s *Store) Open() error {
 		if err := s.openRaft(); err != nil {
 			return fmt.Errorf("raft: %s", err)
 		}
+		log.Println("after open raft:", spew.Sdump(s.raftState.peers()))
 
 		// Initialize the store, if necessary.
 		if err := s.initialize(); err != nil {
 			return fmt.Errorf("initialize raft: %s", err)
 		}
+		log.Println("after initialize raft:", spew.Sdump(s.raftState.peers()))
 
 		// Load existing ID, if exists.
 		if err := s.readID(); err != nil {
@@ -280,6 +286,7 @@ func (s *Store) syncNodeInfo() error {
 	<-s.ready
 
 	for {
+		log.Println("sync node info")
 		if err := func() error {
 			if err := s.WaitForLeader(0); err != nil {
 				return err
@@ -293,7 +300,8 @@ func (s *Store) syncNodeInfo() error {
 			if ni == nil {
 				return ErrNodeNotFound
 			}
-
+			log.Println("ni:", spew.Sdump(ni))
+			log.Println("remote addr:", s.RemoteAddr.String())
 			if ni.Host == s.RemoteAddr.String() {
 				s.Logger.Printf("Updated node id=%d hostname=%v", s.id, s.RemoteAddr.String())
 				return nil
@@ -301,6 +309,7 @@ func (s *Store) syncNodeInfo() error {
 
 			_, err = s.UpdateNode(s.id, s.RemoteAddr.String())
 			if err != nil {
+				log.Println("update node:", s.id, s.RemoteAddr.String(), err)
 				return err
 			}
 			return nil
@@ -467,7 +476,7 @@ func (s *Store) promoteNodeToPeer() error {
 	if err != nil {
 		return err
 	}
-	log.Println("promote node to peer, peers:", peers)
+	//log.Println("promote node to peer, peers:", peers)
 	nodes := s.data.Nodes
 	var nonraft NodeInfos
 	for _, n := range nodes {
@@ -477,7 +486,7 @@ func (s *Store) promoteNodeToPeer() error {
 		nonraft = append(nonraft, n)
 		log.Println("append:", n.Host)
 	}
-	log.Println("non raft:", nonraft)
+	//log.Println("non raft:", nonraft)
 	// Check to see if any action is required or possible
 	if len(peers) >= 3 || len(nonraft) == 0 {
 		return nil
