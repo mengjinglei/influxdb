@@ -383,28 +383,36 @@ func (e *AggregateExecutor) processDerivative(results [][]interface{}) [][]inter
 func (e *AggregateExecutor) processFunctions(results [][]interface{}, columnNames []string) ([][]interface{}, error) {
 	callInPosition := e.stmt.FunctionCallsByPosition()
 	hasTimeField := e.stmt.HasTimeFieldSpecified()
-
+	log.Println("call in position:", spew.Sdump(callInPosition))
+	log.Println("has time field:", spew.Sdump(hasTimeField))
 	var err error
 	for i, calls := range callInPosition {
 		// We can only support expanding fields if a single selector call was specified
 		// i.e. select tx, max(rx) from foo
 		// If you have multiple selectors or aggregates, there is no way of knowing who gets to insert the values, so we don't
 		// i.e. select tx, max(rx), min(rx) from foo
-		if len(calls) == 1 {
-			var c *influxql.Call
-			c = calls[0]
+		log.Println("len(calls):", len(calls), spew.Sdump(calls))
+		//if len(calls) == 1 {
+		for j, c := range calls {
+			//var c *influxql.Call
+			//c = calls[0]
 
 			switch c.Name {
 			case "top", "bottom":
+				log.Println("before precessAggretes:", spew.Sdump(results), columnNames, c)
 				results, err = e.processAggregates(results, columnNames, c)
 				if err != nil {
 					return results, err
 				}
+				log.Println("after processAgrretes:", spew.Sdump(results))
 			case "first", "last", "min", "max":
+				log.Println("before process selector:", spew.Sdump(results), i+j, hasTimeField, columnNames)
 				results, err = e.processSelectors(results, i, hasTimeField, columnNames)
 				if err != nil {
 					return results, err
 				}
+				log.Println("after process selector:", spew.Sdump(results))
+
 			}
 		}
 	}
@@ -415,14 +423,17 @@ func (e *AggregateExecutor) processFunctions(results [][]interface{}, columnName
 func (e *AggregateExecutor) processSelectors(results [][]interface{}, callPosition int, hasTimeField bool, columnNames []string) ([][]interface{}, error) {
 	// if the columns doesn't have enough columns, expand it
 	for i, columns := range results {
-		if len(columns) != len(columnNames) {
+		if len(columns) < len(columnNames) {
+			log.Println(columns, ">>>", len(columnNames), len(columns))
 			columns = append(columns, make([]interface{}, len(columnNames)-len(columns))...)
 		}
 		for j := 1; j < len(columns); j++ {
 			switch v := columns[j].(type) {
 			case PositionPoint:
 				tMin := columns[0].(time.Time)
+				log.Println("before selectorPointToQueryResult:", columns, hasTimeField, callPosition, spew.Sdump(v), tMin, columnNames)
 				results[i] = e.selectorPointToQueryResult(columns, hasTimeField, callPosition, v, tMin, columnNames)
+				log.Println("after selectorPointToQueryResult:", results[i])
 			}
 		}
 	}
