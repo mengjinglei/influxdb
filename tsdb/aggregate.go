@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/influxdb/influxdb/influxql"
 	"github.com/influxdb/influxdb/models"
 	"github.com/influxdb/influxdb/pkg/slices"
@@ -147,22 +149,24 @@ func (e *AggregateExecutor) execute(out chan *models.Row) {
 			values[i] = append(values[i], time.Unix(0, t).UTC()) // Time value is always first.
 
 			for j, f := range reduceFuncs {
-				log.Println("before reduced, value:", buckets[t][j])
+				log.Println("before reduced, value:", spew.Sdump(buckets[t][j]))
 				reducedVal := f(buckets[t][j])
-				log.Println("reduced value:", reducedVal)
+				log.Println("reduced value:", spew.Sdump(reducedVal))
 				values[i] = append(values[i], reducedVal)
 			}
 		}
-		log.Println("values:", values)
+		log.Println("values:", spew.Sdump(values))
+		log.Println("column names:", spew.Sdump(columnNames))
+
 		// Perform aggregate unwraps
 		values, err = e.processFunctions(values, columnNames)
 		if err != nil {
 			out <- &models.Row{Err: err}
 		}
-		log.Println("after process functions, values:", values)
+		log.Println("after process functions, values:", spew.Sdump(values))
 		// Perform any mathematics.
 		values = processForMath(e.stmt.Fields, values)
-		log.Println("after process for math, values:", values)
+		log.Println("after process for math, values:", spew.Sdump(values))
 
 		// Handle any fill options
 		values = e.processFill(values)
@@ -176,7 +180,7 @@ func (e *AggregateExecutor) execute(out chan *models.Row) {
 		}
 
 		row.Values = values
-		log.Println("after execute, values:", values)
+		log.Println("after execute, values:", spew.Sdump(values))
 
 		out <- row
 	}

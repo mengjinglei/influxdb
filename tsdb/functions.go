@@ -15,6 +15,8 @@ import (
 	"reflect"
 	"sort"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/qiniu/log.v1"
 	// "github.com/davecgh/go-spew/spew"
 	"github.com/influxdb/influxdb/influxql"
@@ -804,7 +806,7 @@ func ReduceMax(values []interface{}) interface{} {
 
 	var curr *minMaxMapOut
 	for _, value := range values {
-		log.Println("single value:", value)
+		log.Println("single value:", spew.Sdump(value))
 		v, _ := value.(*minMaxMapOut)
 		if v == nil {
 			var val minMaxMapOut

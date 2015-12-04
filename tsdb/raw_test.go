@@ -134,6 +134,20 @@ func TestWritePointsAndExecuteTwoShards(t *testing.T) {
 			stmt:     `SELECT sum(value) FROM cpu`,
 			expected: `[{"name":"cpu","columns":["time","sum"],"values":[["1970-01-01T00:00:00Z",300]]}]`,
 		},
+
+		// Math queries
+		{
+			stmt:     `SELECT value + value FROM cpu LIMIT 1`,
+			expected: `[{"name":"cpu","columns":["time",""],"values":[["1970-01-01T00:00:01Z",100]]}]`,
+		},
+		{
+			stmt:     `SELECT value + value as sum FROM cpu LIMIT 1`,
+			expected: `[{"name":"cpu","columns":["time","sum"],"values":[["1970-01-01T00:00:01Z",100]]}]`,
+		},
+		{
+			stmt:     `SELECT value + value as sum, value FROM cpu LIMIT 1`,
+			expected: `[{"name":"cpu","columns":["time","sum","value"],"values":[["1970-01-01T00:00:01Z",100, 100]]}]`,
+		},
 	}
 
 	for _, tt := range tests {
