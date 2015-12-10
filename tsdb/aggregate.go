@@ -183,6 +183,8 @@ func (e *AggregateExecutor) execute(out chan *models.Row) {
 		log.Println("after execute, values:", spew.Sdump(values))
 
 		out <- row
+		log.Println("after execute, values:", spew.Sdump(row))
+
 	}
 
 	close(out)
