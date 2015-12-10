@@ -68,6 +68,7 @@ func (e *AggregateExecutor) execute(out chan *models.Row) {
 
 	// Put together the rows to return, starting with columns.
 	columnNames := e.stmt.ColumnNames()
+	log.Println(">>>>>>>>>>>>>>>>>", columnNames)
 
 	// Open the mappers.
 	if err := e.openMappers(); err != nil {
