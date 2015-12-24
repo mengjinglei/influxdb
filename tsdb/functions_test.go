@@ -251,6 +251,49 @@ func Test_distinctValues_Sort(t *testing.T) {
 	}
 }
 
+func TestMapDifference(t *testing.T) {
+	const ( // prove that we're ignoring time
+		timeId1 = iota + 1
+		timeId2
+		timeId3
+		timeId4
+		timeId5
+		timeId6
+		timeId7
+	)
+
+	input := &MapInput{
+		Items: []MapItem{
+			{Timestamp: timeId1, Value: int64(1)},
+			{Timestamp: timeId2, Value: int64(1)},
+			{Timestamp: timeId3, Value: float64(2.0)},
+			{Timestamp: timeId4, Value: int64(1)},
+			{Timestamp: timeId5, Value: float64(1.0)},
+			{Timestamp: timeId6, Value: int64(1)},
+			{Timestamp: timeId7, Value: int64(3)},
+		},
+	}
+
+	values := MapDifference(input).([]*rawQueryMapOutput)
+
+	if exp, got := 4, len(values); exp != got {
+		t.Errorf("Wrong number of values. exp %v got %v", exp, got)
+	}
+
+	exp := []*rawQueryMapOutput{
+		{Time: timeId2, Values: float64(0)},
+		{Time: timeId3, Values: float64(1.0)},
+		{Time: timeId4, Values: float64(-1)},
+		{Time: timeId5, Values: float64(0)},
+		{Time: timeId6, Values: float64(0)},
+		{Time: timeId7, Values: float64(2)},
+	}
+
+	if !reflect.DeepEqual(values, exp) {
+		t.Errorf("Wrong values. exp %v got %v", spew.Sdump(exp), spew.Sdump(values))
+	}
+}
+
 func TestMapCountDistinct(t *testing.T) {
 	const ( // prove that we're ignoring time
 		timeId1 = iota + 1

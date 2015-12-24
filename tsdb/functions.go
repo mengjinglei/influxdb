@@ -121,6 +121,8 @@ func initializeMapFunc(c *influxql.Call) (mapFunc, error) {
 			return initializeMapFunc(fn)
 		}
 		return MapRawQuery, nil
+	case "difference":
+		return MapDifference, nil
 	default:
 		return nil, fmt.Errorf("function not found: %q", c.Name)
 	}
@@ -178,6 +180,11 @@ func initializeReduceFunc(c *influxql.Call) (reduceFunc, error) {
 	case "derivative", "non_negative_derivative":
 		// If the arg is another aggregate e.g. derivative(mean(value)), then
 		// use the map func for that nested aggregate
+		if fn, ok := c.Args[0].(*influxql.Call); ok {
+			return initializeReduceFunc(fn)
+		}
+		return nil, fmt.Errorf("expected function argument to %s", c.Name)
+	case "difference":
 		if fn, ok := c.Args[0].(*influxql.Call); ok {
 			return initializeReduceFunc(fn)
 		}
@@ -1699,6 +1706,30 @@ func MapRawQuery(input *MapInput) interface{} {
 	for _, item := range input.Items {
 		values = append(values, &rawQueryMapOutput{item.Timestamp, item.Value})
 	}
+	return values
+}
+
+// MapDifference
+func MapDifference(input *MapInput) interface{} {
+	var values []*rawQueryMapOutput
+	var lastValue float64
+	for i, item := range input.Items {
+		switch v := item.Value.(type) {
+		case float64:
+			if i > 0 {
+				values = append(values, &rawQueryMapOutput{item.Timestamp, v - lastValue})
+				fmt.Println("append, len=", len(values))
+			}
+			lastValue = v
+		case int64:
+			if i > 0 {
+				values = append(values, &rawQueryMapOutput{item.Timestamp, float64(v) - lastValue})
+				fmt.Println("append, len=", len(values))
+			}
+			lastValue = float64(v)
+		}
+	}
+	fmt.Println("append, len=", len(values))
 	return values
 }
 

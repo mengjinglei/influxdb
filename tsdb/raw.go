@@ -252,10 +252,14 @@ func (e *RawExecutor) execute(out chan *models.Row, closing <-chan struct{}) {
 				out <- &models.Row{Err: err}
 				return
 			}
+
 			rowWriter.transformer = &RawQueryDerivativeProcessor{
 				IsNonNegative:      e.stmt.FunctionCalls()[0].Name == "non_negative_derivative",
 				DerivativeInterval: interval,
 			}
+		} else if e.stmt.HasDifference() {
+			fmt.Println(">>>>>>>>> has difference")
+			rowWriter.transformer = &RawQueryDifferenceProcessor{}
 		}
 
 		// Emit the data via the limiter.
@@ -557,6 +561,25 @@ type RawQueryDerivativeProcessor struct {
 	DerivativeInterval         time.Duration
 }
 
+type RawQueryDifferenceProcessor struct {
+	LastValueFromPreviousChunk *MapperValue
+}
+
+func (rqdp *RawQueryDifferenceProcessor) canProcess(input *MapperValue) bool {
+	if input == nil {
+		return false
+	}
+	validType := false
+	switch input.Value.(type) {
+	case int64:
+		validType = true
+	case float64:
+		validType = true
+	}
+
+	return validType
+}
+
 func (rqdp *RawQueryDerivativeProcessor) canProcess(input *MapperValue) bool {
 	// Cannot process a nil value
 	if input == nil {
@@ -632,6 +655,53 @@ func (rqdp *RawQueryDerivativeProcessor) Process(input []*MapperValue) []*Mapper
 	}
 
 	return derivativeValues
+}
+
+func (rqdp *RawQueryDifferenceProcessor) Process(input []*MapperValue) []*MapperValue {
+	if len(input) == 0 {
+		return input
+	}
+
+	if len(input) == 1 {
+		return []*MapperValue{
+			&MapperValue{
+				Time:  input[0].Time,
+				Value: 0.0,
+			},
+		}
+	}
+
+	if rqdp.LastValueFromPreviousChunk == nil {
+		rqdp.LastValueFromPreviousChunk = input[0]
+	}
+
+	differenceValues := []*MapperValue{}
+	for i := 1; i < len(input); i++ {
+		v := input[i]
+
+		// If we can't use the current or prev value (wrong time, nil), just append
+		// nil
+		if !rqdp.canProcess(v) || !rqdp.canProcess(rqdp.LastValueFromPreviousChunk) {
+			differenceValues = append(differenceValues, &MapperValue{
+				Time:  v.Time,
+				Value: nil,
+			})
+			continue
+		}
+
+		// Calculate the derivative of successive points by dividing the difference
+		// of each value by the elapsed time normalized to the interval
+		diff := int64toFloat64(v.Value) - int64toFloat64(rqdp.LastValueFromPreviousChunk.Value)
+
+		rqdp.LastValueFromPreviousChunk = v
+
+		differenceValues = append(differenceValues, &MapperValue{
+			Time:  v.Time,
+			Value: diff,
+		})
+	}
+
+	return differenceValues
 }
 
 // processForMath will apply any math that was specified in the select statement

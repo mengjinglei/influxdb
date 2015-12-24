@@ -779,11 +779,32 @@ func (s *SelectStatement) HasDerivative() bool {
 	return false
 }
 
+func (s *SelectStatement) HasDifference() bool {
+	for _, f := range s.FunctionCalls() {
+		if f.Name == "difference" {
+			return true
+		}
+	}
+	return false
+}
+
 // IsSimpleDerivative return true if one of the function call is a derivative function with a
 // variable ref as the first arg
 func (s *SelectStatement) IsSimpleDerivative() bool {
 	for _, f := range s.FunctionCalls() {
-		if f.Name == "derivative" || f.Name == "non_negative_derivative" {
+		if f.Name == "derivative" || f.Name == "non_negative_derivative" || f.Name == "difference" {
+			// it's nested if the first argument is an aggregate function
+			if _, ok := f.Args[0].(*VarRef); ok {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (s *SelectStatement) IsSimpleDifference() bool {
+	for _, f := range s.FunctionCalls() {
+		if f.Name == "difference" {
 			// it's nested if the first argument is an aggregate function
 			if _, ok := f.Args[0].(*VarRef); ok {
 				return true
