@@ -134,7 +134,6 @@ func (e *AggregateExecutor) execute(out chan *models.Row, closing <-chan struct{
 		} else {
 			sort.Sort(sort.Reverse(tMins))
 		}
-
 		values := make([][]interface{}, len(tMins))
 		for i, t := range tMins {
 			values[i] = make([]interface{}, 0, len(columnNames))
@@ -145,13 +144,11 @@ func (e *AggregateExecutor) execute(out chan *models.Row, closing <-chan struct{
 				values[i] = append(values[i], reducedVal)
 			}
 		}
-
 		// Perform aggregate unwraps
 		values, err = e.processFunctions(values, columnNames)
 		if err != nil {
 			out <- &models.Row{Err: err}
 		}
-
 		// Perform any mathematics.
 		values = processForMath(e.stmt.Fields, values)
 
@@ -160,6 +157,9 @@ func (e *AggregateExecutor) execute(out chan *models.Row, closing <-chan struct{
 
 		// process derivatives
 		values = e.processDerivative(values)
+
+		// process difference
+		values = e.processDifference(values)
 
 		// If we have multiple tag sets we'll want to filter out the empty ones
 		if hasMultipleTagSets && resultsEmpty(values) {
@@ -386,6 +386,13 @@ func (e *AggregateExecutor) processDerivative(results [][]interface{}) [][]inter
 		// Determines whether to drop negative differences
 		isNonNegative := e.stmt.FunctionCalls()[0].Name == "non_negative_derivative"
 		return ProcessAggregateDerivative(results, isNonNegative, interval)
+	}
+	return results
+}
+
+func (e *AggregateExecutor) processDifference(results [][]interface{}) [][]interface{} {
+	if e.stmt.HasDifference() {
+		return ProcessAggregateDifference(results)
 	}
 	return results
 }

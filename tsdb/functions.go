@@ -122,6 +122,9 @@ func initializeMapFunc(c *influxql.Call) (mapFunc, error) {
 		}
 		return MapRawQuery, nil
 	case "difference":
+		if fn, ok := c.Args[0].(*influxql.Call); ok {
+			return initializeMapFunc(fn)
+		}
 		return MapDifference, nil
 	default:
 		return nil, fmt.Errorf("function not found: %q", c.Name)
@@ -1729,7 +1732,7 @@ func MapDifference(input *MapInput) interface{} {
 			lastValue = float64(v)
 		}
 	}
-	fmt.Println("append, len=", len(values))
+
 	return values
 }
 

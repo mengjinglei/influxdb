@@ -258,7 +258,6 @@ func (e *RawExecutor) execute(out chan *models.Row, closing <-chan struct{}) {
 				DerivativeInterval: interval,
 			}
 		} else if e.stmt.HasDifference() {
-			fmt.Println(">>>>>>>>> has difference")
 			rowWriter.transformer = &RawQueryDifferenceProcessor{}
 		}
 
@@ -737,6 +736,42 @@ func processForMath(fields influxql.Fields, results [][]interface{}) [][]interfa
 	}
 
 	return mathResults
+}
+func ProcessAggregateDifference(results [][]interface{}) [][]interface{} {
+
+	if len(results) == 0 {
+		return results
+	}
+
+	if len(results) == 1 {
+		return [][]interface{}{
+			[]interface{}{results[0][0], nil},
+		}
+	}
+
+	differences := [][]interface{}{}
+	for i := 1; i < len(results); i++ {
+		prev := results[i-1]
+		cur := results[i]
+
+		if prev[1] == nil || cur[1] == nil {
+			differences = append(differences, []interface{}{cur[0], nil})
+			continue
+		}
+
+		prevValue, prevOK := toFloat64(prev[1])
+		curValue, curOK := toFloat64(cur[1])
+		if !prevOK || !curOK {
+			differences = append(differences, []interface{}{
+				cur[0], nil,
+			})
+			continue
+		}
+
+		differences = append(differences, []interface{}{cur[0], curValue - prevValue})
+	}
+
+	return differences
 }
 
 // ProcessAggregateDerivative returns the derivatives of an aggregate result set

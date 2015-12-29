@@ -1246,6 +1246,14 @@ func (s *SelectStatement) validPercentileAggr(expr *Call) error {
 	return nil
 }
 
+func (s *SelectStatement) validDifferenceAggr(expr *Call) error {
+	if exp, got := 1, len(expr.Args); got != exp {
+		return fmt.Errorf("invalid number of arguments for %s, expected %d, got %d", expr.Name, exp, got)
+	}
+
+	return nil
+}
+
 func (s *SelectStatement) validateAggregates(tr targetRequirement) error {
 	for _, f := range s.Fields {
 		for _, expr := range walkFunctionCalls(f.Expr) {
@@ -1281,6 +1289,10 @@ func (s *SelectStatement) validateAggregates(tr targetRequirement) error {
 							return fmt.Errorf("invalid number of arguments for %s, expected %d, got %d", c.Name, exp, got)
 						}
 					}
+				}
+			case "difference":
+				if err := s.validDifferenceAggr(expr); err != nil {
+					return err
 				}
 			case "top", "bottom":
 				if err := s.validTopBottomAggr(expr); err != nil {
