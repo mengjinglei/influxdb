@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"sort"
 	"strconv"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/influxdata/influxdb"
 	"github.com/influxdata/influxdb/influxql"
 	"github.com/influxdata/influxdb/models"
@@ -48,6 +50,7 @@ type StatementExecutor struct {
 func (e *StatementExecutor) ExecuteStatement(stmt influxql.Statement, ctx influxql.ExecutionContext) error {
 	// Select statements are handled separately so that they can be streamed.
 	if stmt, ok := stmt.(*influxql.SelectStatement); ok {
+		log.Println("func (e *StatementExecutor) ExecuteStatement(stmt influxql.Statement, ctx influxql.ExecutionContext) error {")
 		return e.executeSelectStatement(stmt, &ctx)
 	}
 
@@ -409,6 +412,7 @@ func (e *StatementExecutor) executeSelectStatement(stmt *influxql.SelectStatemen
 	if err != nil {
 		return err
 	}
+	log.Println("after create iterators", spew.Sdump(itrs), stmt.String())
 
 	// Generate a row emitter from the iterator set.
 	em := influxql.NewEmitter(itrs, stmt.TimeAscending(), ctx.ChunkSize)
@@ -496,6 +500,7 @@ func (e *StatementExecutor) executeSelectStatement(stmt *influxql.SelectStatemen
 
 func (e *StatementExecutor) createIterators(stmt *influxql.SelectStatement, ctx *influxql.ExecutionContext) ([]influxql.Iterator, *influxql.SelectStatement, error) {
 	// It is important to "stamp" this time so that everywhere we evaluate `now()` in the statement is EXACTLY the same `now`
+	log.Println("start to create iterator", stmt.String())
 	now := time.Now().UTC()
 	opt := influxql.SelectOptions{
 		InterruptCh: ctx.InterruptCh,
@@ -537,15 +542,17 @@ func (e *StatementExecutor) createIterators(stmt *influxql.SelectStatement, ctx 
 	if opt.MinTime.IsZero() {
 		opt.MinTime = time.Unix(0, influxql.MinTime).UTC()
 	}
-
+	log.Println(stmt.String())
 	// Convert DISTINCT into a call.
 	stmt.RewriteDistinct()
-
+	log.Println("after rewrite DISTINCT", stmt.String())
 	// Remove "time" from fields list.
 	stmt.RewriteTimeFields()
+	log.Println("after rewrite timefields", stmt.String())
 
 	// Rewrite any regex conditions that could make use of the index.
 	stmt.RewriteRegexConditions()
+	log.Println("after rewrite regex", stmt.String())
 
 	// Create an iterator creator based on the shards in the cluster.
 	ic, err := e.iteratorCreator(stmt, &opt)
@@ -561,6 +568,7 @@ func (e *StatementExecutor) createIterators(stmt *influxql.SelectStatement, ctx 
 		}
 		stmt.Sources = sources
 	}
+	log.Println("after expand source", stmt.String())
 
 	// Rewrite wildcards, if any exist.
 	tmp, err := stmt.RewriteFields(ic)
@@ -568,6 +576,7 @@ func (e *StatementExecutor) createIterators(stmt *influxql.SelectStatement, ctx 
 		return nil, stmt, err
 	}
 	stmt = tmp
+	log.Println("after rewrite fields", stmt.String())
 
 	if e.MaxSelectBucketsN > 0 && !stmt.IsRawQuery {
 		interval, err := stmt.GroupByInterval()

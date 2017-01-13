@@ -289,6 +289,7 @@ func (w *PointsWriter) WritePoints(database, retentionPolicy string, consistency
 	atomic.AddInt64(&w.stats.PointWriteReq, int64(len(points)))
 
 	if retentionPolicy == "" {
+		log.Println(">>>", w.MetaClient)
 		db := w.MetaClient.Database(database)
 		if db == nil {
 			return influxdb.ErrDatabaseNotFound(database)
